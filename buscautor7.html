@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buscador de Autores Literarios</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #f4f4f4;
+            --card-bg: #1e1e1e;
+            --card-border: rgba(255, 255, 255, 0.1);
+            --button-bg: #1e90ff;
+            --button-hover: #007acc;
+            --highlight: #1e90ff;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+        h1 {
+            color: var(--text-color);
+        }
+        input {
+            width: 60%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            background-color: var(--button-bg);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: var(--button-hover);
+        }
+        #resultado {
+            margin-top: 20px;
+            text-align: left;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0px 0px 10px var(--card-border);
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        li {
+            background: var(--card-bg);
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 3px;
+            border-left: 5px solid var(--highlight);
+            color: var(--text-color);
+        }
+        .modo-oscuro-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: var(--button-bg);
+            color: white;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .modo-oscuro-btn:hover {
+            background: var(--button-hover);
+        }
+    </style>
+</head>
+<body class="dark-mode">
+
+    <button class="modo-oscuro-btn" onclick="toggleDarkMode()">☀️ Modo Claro</button>
+
+    <h1>Buscador de Autores Literarios</h1>
+    <input type="text" id="autor" placeholder="Escribe el nombre de un autor...">
+    <button onclick="buscarAutor()">Buscar</button>
+
+    <div id="resultado"></div>
+
+    <script>
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark-mode");
+            const btn = document.querySelector(".modo-oscuro-btn");
+            if (document.body.classList.contains("dark-mode")) {
+                btn.innerHTML = "☀️ Modo Claro";
+            } else {
+                btn.innerHTML = "🌙 Modo Oscuro";
+            }
+        }
+
+        async function buscarAutor() {
+            const autor = document.getElementById("autor").value.trim();
+            if (!autor) {
+                alert("Por favor, ingresa un nombre de autor.");
+                return;
+            }
+
+            const resultadoDiv = document.getElementById("resultado");
+            resultadoDiv.innerHTML = "<p>Buscando información...</p>";
+
+            try {
+                // Buscar el autor en Open Library
+                const autorResponse = await fetch(`https://openlibrary.org/search/authors.json?q=${encodeURIComponent(autor)}`);
+                const autorData = await autorResponse.json();
+
+                if (!autorData.docs.length) {
+                    resultadoDiv.innerHTML = `<p>No se encontraron resultados para <strong>${autor}</strong>.</p>`;
+                    return;
+                }
+
+                const autorKey = autorData.docs[0].key; // Obtener la clave del autor
+
+                // Buscar sus obras
+                const obrasResponse = await fetch(`https://openlibrary.org/authors/${autorKey}/works.json`);
+                const obrasData = await obrasResponse.json();
+
+                if (!obrasData.entries.length) {
+                    resultadoDiv.innerHTML = `<p>No se encontraron obras para <strong>${autor}</strong>.</p>`;
+                    return;
+                }
+
+                // Extraer título y año de publicación
+                const obrasOrdenadas = obrasData.entries.map(obra => {
+                    let año = "";
+                    
+                    if (obra.first_publish_date) {
+                        const match = obra.first_publish_date.match(/\d{4}/); // Extrae solo el año
+                        if (match) año = match[0];
+                    }
+
+                    return {
+                        titulo: obra.title,
+                        año: año
+                    };
+                }).sort((a, b) => (a.año === "" ? 9999 : parseInt(a.año)) - (b.año === "" ? 9999 : parseInt(b.año)));
+
+                resultadoDiv.innerHTML = `
+                    <h2>Obras de ${autorData.docs[0].name}</h2>
+                    <ul>${obrasOrdenadas.map(obra => `<li>${obra.año ? `<strong>${obra.año}</strong> - ` : ""}${obra.titulo}</li>`).join("")}</ul>
+                `;
+            } catch (error) {
+                resultadoDiv.innerHTML = `<p>Error al buscar la información. Intenta con otro autor.</p>`;
+            }
+        }
+    </script>
+
+</body>
+</html>
